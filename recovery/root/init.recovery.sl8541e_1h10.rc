@@ -1,6 +1,54 @@
 #add for board init.rc for recovery mode
-on post-fs
+on early-init
+    setenforce 0
+    setprop sys.usb.configfs 1
+    setprop sys.usb.config mtp,adb
 
+on init
+    mknod /dev/block/loop0 b 7 0
+    mknod /dev/block/loop1 b 7 1
+
+    chmod 0666 /sys/class/android_usb/android0/enable
+    chmod 0666 /sys/class/android_usb/android0/functions
+    chmod 0666 /sys/class/android_usb/android0/idVendor
+    chmod 0666 /sys/class/android_usb/android0/idProduct
+
+on post-fs
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/idVendor 18D1
+    write /sys/class/android_usb/android0/idProduct 4EE2
+    write /sys/class/android_usb/android0/functions adb
+    write /sys/class/android_usb/android0/enable 1
+
+    setprop persist.service.adb.enable 1
+    setprop persist.service.debuggable 1
+    setprop ro.debuggable 1
+    setprop ro.adb.secure 0
+
+on post-fs-data
+    mkdir /data/gnss/ 0777 system system
+    mkdir /data/gnss/bin/ 0777 system system
+    mkdir /data/gnss/supl/ 0777 system system
+    mkdir /data/gnss/config/ 0777 system system
+    mkdir /data/gnss/lte/ 0777 system system
+
+on boot
+    class_start core
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/functions mtp,adb
+    write /sys/class/android_usb/android0/enable 1
+
+on property:sys.usb.config=mtp,adb
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/functions mtp,adb
+    write /sys/class/android_usb/android0/enable 1
+    setprop sys.usb.state mtp,adb
+
+on property:sys.usb.config=adb
+    write /sys/class/android_usb/android0/enable 0
+    write /sys/class/android_usb/android0/functions adb
+    write /sys/class/android_usb/android0/enable 1
+    setprop sys.usb.state adb
 
 service gnss_download /system/bin/gnss_download
     class cali
@@ -8,7 +56,36 @@ service gnss_download /system/bin/gnss_download
     group system
     oneshot
 
+service adbd /sbin/adbd recovery
+    class core
+    socket adbd stream 660 system system
+    disabled
+    seclabel u:r:adbd:s0
+    user root
+    group root system inet
+
+service setup_usb /system/bin/sh /system/bin/setup_usb.sh
+    class main
+    user root
+    group root
+    oneshot
+
 on factorytest
+    mkdir /data/gnss/ 0777 system system
+    mkdir /data/gnss/bin/ 0777 system system
+    mkdir /data/gnss/supl/ 0777 system system
+    mkdir /data/gnss/config/ 0777 system system
+    mkdir /data/gnss/lte/ 0777 system system
+    chmod 666 /data/gnss/bin/gnssmodem.bin
+    chmod 666 /data/gnss/config/config.xml
+    chmod 660 /data/gnss/supl/supl.xml
+    chmod 660 /data/gnss/supl/spirentroot.cer
+    chmod 666 /data/gnss/lte/ext.eph
+    chmod 666 /data/gnss/lte/jpleph.405
+    chmod 666 /data/gnss/gnss.log
+    chmod 666 /data/gnss/nmea.log
+    chmod 666 /productinfo/tsx.dat
+    chmod 666 /productinfo/txdata.txt
 
 on cali
     mkdir /data/gnss/ 0777 system system
@@ -26,19 +103,15 @@ on cali
     chmod 666 /data/gnss/nmea.log
     chmod 666 /productinfo/tsx.dat
     chmod 666 /productinfo/txdata.txt
-on factorytest
-    mkdir /data/gnss/ 0777 system system
-    mkdir /data/gnss/bin/ 0777 system system
-    mkdir /data/gnss/supl/ 0777 system system
-    mkdir /data/gnss/config/ 0777 system system
-    mkdir /data/gnss/lte/ 0777 system system
-    chmod 666 /data/gnss/bin/gnssmodem.bin
-    chmod 666 /data/gnss/config/config.xml
-    chmod 660 /data/gnss/supl/supl.xml
-    chmod 660 /data/gnss/supl/spirentroot.cer
-    chmod 666 /data/gnss/lte/ext.eph
-    chmod 666 /data/gnss/lte/jpleph.405
-    chmod 666 /data/gnss/gnss.log
-    chmod 666 /data/gnss/nmea.log
-    chmod 666 /productinfo/tsx.dat
-    chmod 666 /productinfo/txdata.txt
+
+on property:persist.service.adb.enable=1
+    start adbd
+    setprop sys.usb.config mtp,adb
+
+on property:persist.service.adb.enable=0
+    stop adbd
+
+on property:sys.boot_completed=1
+
+    setprop persist.service.adb.enable 1
+    start adbd
