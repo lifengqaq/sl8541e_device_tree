@@ -92,3 +92,15 @@ TW_EXTRA_LANGUAGES := true
 TW_SCREEN_BLANK_ON_BOOT := true
 TW_INPUT_BLACKLIST := "hbtp_vm"
 TW_USE_TOOLBOX := true
+
+# USB and ADB
+TW_EXCLUDE_DEFAULT_USB_INIT := false
+TW_HAS_USB_STORAGE := true
+TW_HAS_MTP := true
+TW_MTP_DEVICE := /dev/mtp_usb
+
+# Debug
+TARGET_USES_LOGD := true
+
+# SPRD
+BOARD_USE_SPRD_HW_VER := true
